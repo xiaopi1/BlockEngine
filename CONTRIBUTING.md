@@ -1,6 +1,6 @@
 # 贡献指南 (Contributing)
 
-感谢你对 Axolotl Launcher 及其相关内容感兴趣！在提交代码前，请先阅读以下指南。
+感谢你对 BlockEngine Launcher 及其相关内容感兴趣！在提交代码前，请先阅读以下指南。
 
 ## 本地开发
 
