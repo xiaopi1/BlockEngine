@@ -1,12 +1,11 @@
 # 复制与许可证说明
 
-方块引擎桌面程序是 Axolotl Launcher 的衍生作品；Axolotl Launcher 又基于 Modrinth App。
+方块引擎桌面程序是 Axolotl Launcher 的衍生作品。
 本项目自行编写和修改的 GPL 兼容桌面源代码采用 **GNU General Public License v3.0 only**（`GPL-3.0-only`）发布，完整许可证见 [LICENSE](./LICENSE)。
 
 上游版权仍归原作者及贡献者所有：
 
 - Axolotl Launcher：https://github.com/Mystic-Stars/Axolotl
-- Modrinth App：https://github.com/modrinth/code
 
 分发本项目或修改版本时，应遵守 GPLv3，包括提供对应源代码、保留许可证、版权声明、上游署名和修改说明。
 
