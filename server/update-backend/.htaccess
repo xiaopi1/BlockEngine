@@ -1,0 +1,5 @@
+Options -Indexes
+
+<FilesMatch "^(config\.local\.php|config\.example\.php|README\.md|DEPLOYMENT_ZH-CN\.md)$">
+    Require all denied
+</FilesMatch>

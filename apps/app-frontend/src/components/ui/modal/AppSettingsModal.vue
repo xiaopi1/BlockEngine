@@ -1,0 +1,282 @@
+<script setup lang="ts">
+import {
+	BotIcon,
+	CoffeeIcon,
+	GameIcon,
+	GaugeIcon,
+	GlobeIcon,
+	InfoIcon,
+	LanguagesIcon,
+	PaintbrushIcon,
+	RefreshCwIcon,
+	SettingsIcon,
+	ToggleRightIcon,
+} from '@modrinth/assets'
+import {
+	commonMessages,
+	commonSettingsMessages,
+	defineMessage,
+	defineMessages,
+	ProgressBar,
+	TabbedModal,
+	useVIntl,
+} from '@modrinth/ui'
+import { getVersion } from '@tauri-apps/api/app'
+import { platform as getOsPlatform, version as getOsVersion } from '@tauri-apps/plugin-os'
+import { ref, watch } from 'vue'
+
+import BlockEngineLogo from '@/components/ui/BlockEngineLogo.vue'
+import AboutSettings from '@/components/ui/settings/AboutSettings.vue'
+import AISettings from '@/components/ui/settings/AISettings.vue'
+import AppearanceSettings from '@/components/ui/settings/AppearanceSettings.vue'
+import DefaultInstanceSettings from '@/components/ui/settings/DefaultInstanceSettings.vue'
+import FeatureFlagSettings from '@/components/ui/settings/FeatureFlagSettings.vue'
+import JavaSettings from '@/components/ui/settings/JavaSettings.vue'
+import LanguageSettings from '@/components/ui/settings/LanguageSettings.vue'
+import ResourceManagementSettings from '@/components/ui/settings/ResourceManagementSettings.vue'
+import TranslationSettings from '@/components/ui/settings/TranslationSettings.vue'
+import UpdateSettings from '@/components/ui/settings/UpdateSettings.vue'
+import { AxolotlBrandConfig } from '@/config'
+import { get, set } from '@/helpers/settings.ts'
+import { injectAppUpdateDownloadProgress } from '@/providers/download-progress.ts'
+import { useTheming } from '@/store/state'
+
+const themeStore = useTheming()
+
+const { formatMessage } = useVIntl()
+
+const devModeCounter = ref(0)
+
+const developerModeEnabled = defineMessage({
+	id: 'app.settings.developer-mode-enabled',
+	defaultMessage: 'Developer mode enabled.',
+})
+
+const tabs = [
+	{
+		name: defineMessage({
+			id: 'app.settings.tabs.appearance',
+			defaultMessage: 'Appearance',
+		}),
+		icon: PaintbrushIcon,
+		content: AppearanceSettings,
+		onboardingId: 'settings-tab-appearance',
+	},
+	{
+		name: defineMessage({
+			id: 'app.settings.tabs.language',
+			defaultMessage: 'Language',
+		}),
+		icon: LanguagesIcon,
+		content: LanguageSettings,
+		badge: commonMessages.beta,
+		onboardingId: 'settings-tab-language',
+	},
+	{
+		name: defineMessage({
+			id: 'app.settings.tabs.translation',
+			defaultMessage: 'Translation',
+		}),
+		icon: GlobeIcon,
+		content: TranslationSettings,
+		badge: commonMessages.beta,
+		onboardingId: 'settings-tab-translation',
+	},
+	{
+		name: defineMessage({
+			id: 'app.settings.tabs.ai',
+			defaultMessage: 'AI',
+		}),
+		icon: BotIcon,
+		content: AISettings,
+		flushContent: true,
+		badge: commonMessages.beta,
+		onboardingId: 'settings-tab-ai',
+	},
+	{
+		name: defineMessage({
+			id: 'app.settings.tabs.java-installations',
+			defaultMessage: 'Java installations',
+		}),
+		icon: CoffeeIcon,
+		content: JavaSettings,
+		onboardingId: 'settings-tab-java',
+	},
+	{
+		name: defineMessage({
+			id: 'app.settings.tabs.default-instance-options',
+			defaultMessage: 'Default instance options',
+		}),
+		icon: GameIcon,
+		content: DefaultInstanceSettings,
+		onboardingId: 'settings-tab-defaults',
+	},
+	{
+		name: defineMessage({
+			id: 'app.settings.tabs.resource-management',
+			defaultMessage: 'Resource management',
+		}),
+		icon: GaugeIcon,
+		content: ResourceManagementSettings,
+		onboardingId: 'settings-tab-resources',
+	},
+	{
+		name: defineMessage({
+			id: 'app.settings.tabs.updates',
+			defaultMessage: 'Updates',
+		}),
+		icon: RefreshCwIcon,
+		content: UpdateSettings,
+	},
+	{
+		name: defineMessage({
+			id: 'app.settings.tabs.about',
+			defaultMessage: 'About',
+		}),
+		icon: InfoIcon,
+		content: AboutSettings,
+	},
+	{
+		name: commonSettingsMessages.featureFlags,
+		icon: ToggleRightIcon,
+		content: FeatureFlagSettings,
+		developerOnly: true,
+	},
+]
+
+const modal = ref<InstanceType<typeof TabbedModal> | null>(null)
+
+function show() {
+	modal.value?.show()
+}
+
+function hide() {
+	modal.value?.hide()
+}
+
+defineExpose({ show, hide })
+
+const { progress, version: downloadingVersion } = injectAppUpdateDownloadProgress()
+
+const version = await getVersion()
+const osPlatform = getOsPlatform()
+const osVersion = getOsVersion()
+const settings = ref(await get())
+
+watch(
+	settings,
+	async () => {
+		await set(settings.value)
+	},
+	{ deep: true },
+)
+
+function devModeCount() {
+	devModeCounter.value++
+	if (devModeCounter.value > 5) {
+		themeStore.devMode = !themeStore.devMode
+		settings.value.developer_mode = !!themeStore.devMode
+		devModeCounter.value = 0
+
+		if (!themeStore.devMode && tabs[modal.value!.selectedTab].developerOnly) {
+			modal.value!.setTab(0)
+		}
+	}
+}
+
+const messages = defineMessages({
+	downloading: {
+		id: 'app.settings.downloading',
+		defaultMessage: 'Downloading v{version}',
+	},
+})
+</script>
+<template>
+	<TabbedModal
+		ref="modal"
+		width="72rem"
+		:tabs="tabs.filter((t) => !t.developerOnly || themeStore.devMode)"
+	>
+		<template #title>
+			<div class="settings-workbench-title">
+				<span class="settings-workbench-icon"><SettingsIcon /></span>
+				<div>
+					<small>SYSTEM WORKSHOP</small>
+					<strong>{{ formatMessage(commonMessages.settingsLabel) }}</strong>
+				</div>
+			</div>
+		</template>
+		<template #footer>
+			<div class="mt-auto text-secondary text-sm">
+				<div class="mb-3">
+					<template v-if="progress > 0 && progress < 1">
+						<p class="m-0 mb-2">
+							{{ formatMessage(messages.downloading, { version: downloadingVersion }) }}
+						</p>
+						<ProgressBar :progress="progress" />
+					</template>
+				</div>
+				<p v-if="themeStore.devMode" class="text-brand font-semibold m-0 mb-2">
+					{{ formatMessage(developerModeEnabled) }}
+				</p>
+				<div class="flex items-center gap-3">
+					<button
+						class="p-0 m-0 bg-transparent border-none cursor-pointer button-animation"
+						:class="{
+							'text-brand': themeStore.devMode,
+							'text-secondary': !themeStore.devMode,
+						}"
+						@click="devModeCount"
+					>
+						<BlockEngineLogo class="h-9" />
+					</button>
+					<div class="max-w-[200px]">
+						<p class="m-0">{{ AxolotlBrandConfig.productName }} {{ version }}</p>
+						<p class="m-0">
+							<span v-if="osPlatform === 'macos'">macOS</span>
+							<span v-else class="capitalize">{{ osPlatform }}</span>
+							{{ osVersion }}
+						</p>
+					</div>
+				</div>
+			</div>
+		</template>
+	</TabbedModal>
+</template>
+
+<style scoped>
+.settings-workbench-title {
+	display: flex;
+	align-items: center;
+	gap: 0.7rem;
+}
+
+.settings-workbench-icon {
+	display: grid;
+	width: 2.35rem;
+	height: 2.35rem;
+	place-items: center;
+	border: 1px solid color-mix(in srgb, var(--be-moss) 38%, transparent);
+	background: color-mix(in srgb, var(--be-moss) 12%, transparent);
+	color: var(--be-moss);
+}
+
+.settings-workbench-title div {
+	display: flex;
+	flex-direction: column;
+}
+
+.settings-workbench-title small {
+	color: var(--be-moss);
+	font-family: var(--be-font-data);
+	font-size: 0.58rem;
+	font-weight: 800;
+	letter-spacing: 0.12em;
+}
+
+.settings-workbench-title strong {
+	color: var(--color-contrast);
+	font-family: var(--be-font-display);
+	font-size: 1.08rem;
+}
+</style>
