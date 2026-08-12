@@ -10,18 +10,7 @@
 - 更新：Tauri Updater，官方地址 `https://san2.top/blockengine/latest.php`
 - 许可证：GPL-3.0-only 衍生作品，必须保留 `COPYING.md`、`SOURCE_AND_LICENSE.txt` 及上游署名。
 
-## 后续让 Codex 继续开发
 
-把源码 ZIP 解压到一个可写目录，然后把解压后的根目录提供给 Codex。推荐直接说明：
-
-```text
-请读取 BLOCK_ENGINE_DEVELOPMENT_ZH-CN.md 和 AGENTS.md，继续开发方块引擎。
-不要删除现有启动、账户、实例、资源下载、自动更新和许可证功能。
-本次需要实现：……
-完成后运行主页测试、Vue 类型检查和 Windows 发布构建。
-```
-
-后续开发应直接在源码目录修改，不要反编译 EXE，也不要把 `block-engine.key` 复制进源码目录。
 
 ## 主要目录
 
