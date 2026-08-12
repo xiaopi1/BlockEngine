@@ -55,3 +55,23 @@ apps\app\build-windows.cmd
 > 第三方素材、数据和依赖仍适用其各自许可证，不能统一改写为 GPL。分发二进制版本时必须按 GPLv3 提供对应源代码或有效源码获取方式，并保留上游署名与修改说明。
 
 本项目与 Mojang Studios、Microsoft、Modrinth/Rinth, Inc. 无隶属或背书关系。Minecraft 是 Mojang Studios / Microsoft 的商标。
+
+## 👥 贡献者
+
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/xiaopi1">
+        <img src="https://github.com/xiaopi1.png?size=50" width="50" height="50" style="border-radius: 50%;" alt="xiaopi1"/>
+        <br /><sub><b>xiaopi1</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/cyf112233">
+        <img src="https://github.com/cyf112233.png?size=50" width="50" height="50" style="border-radius: 50%;" alt="cyf112233"/>
+        <br /><sub><b>cyf112233</b></sub>
+      </a>
+    </td>
+    <!-- 继续添加更多贡献者 -->
+  </tr>
+</table>
