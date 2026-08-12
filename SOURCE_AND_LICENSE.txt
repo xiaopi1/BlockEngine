@@ -1,0 +1,29 @@
+方块引擎 / Block Engine
+========================
+
+方块引擎是基于 Axolotl Launcher 继续开发的桌面 Minecraft Java 启动器。
+Axolotl Launcher 本身基于 Modrinth App。方块引擎保留并扩展了启动、账户、
+游戏环境、内容下载、资源管理、Java 管理和相关桌面能力，并重新设计了品牌、
+安装器、中文体验与部分功能。
+
+主要上游项目：
+- Axolotl Launcher: https://github.com/Mystic-Stars/Axolotl
+- Modrinth App: https://github.com/modrinth/code
+
+许可证
+------
+
+方块引擎桌面程序及本项目自行编写、修改的 GPL 兼容源代码，以
+GNU General Public License version 3 only（SPDX: GPL-3.0-only）发布。
+完整正文见仓库根目录 LICENSE。
+
+第三方包、数据、字体、图片和其他资源仍适用其各自许可证及版权声明，详见：
+- COPYING.md
+- 各子包中的 COPYING.md / LICENSE
+- third-party/licenses/
+
+分发修改后的二进制文件时，必须同时提供相应完整源代码或符合 GPLv3 要求的
+有效源码获取方式，并保留版权声明、许可证文本、上游署名和修改说明。
+
+方块引擎与 Mojang Studios、Microsoft、Modrinth/Rinth, Inc. 无隶属或背书关系。
+Minecraft 是 Mojang Studios / Microsoft 的商标。
