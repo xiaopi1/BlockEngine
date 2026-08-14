@@ -296,6 +296,48 @@ mod tests {
     }
 
     #[test]
+    fn download_summary_deduplicates_recovered_files_and_clamps_progress() {
+        let mut job = job_state();
+        job.record_event(InstallJobEventKind::ContentDownloadStarted {
+            files: 1,
+            bytes: Some(100),
+        });
+        job.record_event(InstallJobEventKind::ContentFileSkipped {
+            path: "mods/manual.jar".to_string(),
+            reason: "manual download required".to_string(),
+            project_id: Some("123".to_string()),
+            version_id: Some("456".to_string()),
+            manual_url: None,
+        });
+        job.record_event(InstallJobEventKind::ContentFileCompleted {
+            path: "mods/manual.jar".to_string(),
+            bytes: 100,
+        });
+        job.record_event(InstallJobEventKind::ContentFileCompleted {
+            path: "mods/manual.jar".to_string(),
+            bytes: 100,
+        });
+        job.set_progress(
+            InstallPhaseId::DownloadingContent,
+            Some(InstallProgress {
+                current: 2,
+                total: 1,
+                secondary: Some(InstallProgressSecondary {
+                    current: 200,
+                    total: 100,
+                }),
+            }),
+            InstallPhaseDetails::Empty,
+        );
+
+        let summary = job.download_summary();
+        assert_eq!(summary.files_completed, 1);
+        assert_eq!(summary.files_total, Some(1));
+        assert_eq!(summary.bytes_downloaded, 100);
+        assert_eq!(summary.bytes_total, Some(100));
+    }
+
+    #[test]
     fn request_events_create_items_for_java_and_minecraft_downloads() {
         let mut job = job_state();
         job.record_event(InstallJobEventKind::DownloadRequestStarted {
@@ -1459,6 +1501,7 @@ impl InstallJobState {
 
     pub fn download_summary(&self) -> DownloadJobSummary {
         let mut summary = DownloadJobSummary::default();
+        let mut settled_content_files = HashMap::<&str, Option<u64>>::new();
         for event in &self.events {
             match &event.kind {
                 InstallJobEventKind::ContentDownloadStarted {
@@ -1468,14 +1511,12 @@ impl InstallJobState {
                     summary.files_total = Some(*files);
                     summary.bytes_total = *bytes;
                 }
-                InstallJobEventKind::ContentFileCompleted { bytes, .. } => {
-                    summary.files_completed += 1;
-                    summary.bytes_downloaded =
-                        summary.bytes_downloaded.saturating_add(*bytes);
+                InstallJobEventKind::ContentFileCompleted { path, bytes } => {
+                    settled_content_files.insert(path.as_str(), Some(*bytes));
                 }
-                InstallJobEventKind::ContentFileSkipped { .. }
-                | InstallJobEventKind::ContentFileFailed { .. } => {
-                    summary.files_completed += 1;
+                InstallJobEventKind::ContentFileSkipped { path, .. }
+                | InstallJobEventKind::ContentFileFailed { path, .. } => {
+                    settled_content_files.entry(path.as_str()).or_insert(None);
                 }
                 InstallJobEventKind::DownloadMetrics {
                     source,
@@ -1488,6 +1529,11 @@ impl InstallJobState {
                 _ => {}
             }
         }
+        summary.files_completed = settled_content_files.len() as u64;
+        summary.bytes_downloaded = settled_content_files
+            .values()
+            .filter_map(|bytes| *bytes)
+            .fold(0_u64, u64::saturating_add);
         if let Some(progress) = &self.progress.progress {
             if self.progress.phase == InstallPhaseId::DownloadingContent {
                 summary.files_completed = progress.current;
@@ -1510,6 +1556,13 @@ impl InstallJobState {
                 summary.bytes_downloaded = progress.current;
                 summary.bytes_total = Some(progress.total);
             }
+        }
+        if let Some(files_total) = summary.files_total {
+            summary.files_completed = summary.files_completed.min(files_total);
+        }
+        if let Some(bytes_total) = summary.bytes_total {
+            summary.bytes_downloaded =
+                summary.bytes_downloaded.min(bytes_total);
         }
         let actively_downloading = matches!(
             self.progress.phase,

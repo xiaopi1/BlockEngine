@@ -1,0 +1,1 @@
+{"core":{"identifier":"core","description":"Permissions required by the BlockEngine updater test shell.","local":true,"windows":["main"],"permissions":["core:default","core:event:default"]},"updater":{"identifier":"updater","description":"Allows the signed BlockEngine update test.","local":true,"windows":["main"],"permissions":["updater:default"]}}

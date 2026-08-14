@@ -1,0 +1,8 @@
+{
+	"identifier": "core",
+	"description": "Permissions required by the BlockEngine updater test shell.",
+	"local": true,
+	"windows": ["main"],
+	"permissions": ["core:default", "core:event:default"]
+}
+

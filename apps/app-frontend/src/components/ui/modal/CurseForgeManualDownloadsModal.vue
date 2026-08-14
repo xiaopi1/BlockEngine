@@ -63,12 +63,20 @@
 							</span>
 						</div>
 					</div>
-					<ButtonStyled v-if="!isImported(item)" type="outlined" size="small">
-						<button @click="openOne(item)">
-							<ExternalIcon aria-hidden="true" />
-							{{ formatMessage(messages.open) }}
-						</button>
-					</ButtonStyled>
+					<div v-if="!isImported(item)" class="flex shrink-0 gap-2">
+						<ButtonStyled type="outlined" size="small">
+							<button @click="chooseFile(item)">
+								<FolderSearchIcon aria-hidden="true" />
+								{{ formatMessage(messages.chooseFile) }}
+							</button>
+						</ButtonStyled>
+						<ButtonStyled type="outlined" size="small">
+							<button @click="openOne(item)">
+								<ExternalIcon aria-hidden="true" />
+								{{ formatMessage(messages.open) }}
+							</button>
+						</ButtonStyled>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -107,12 +115,14 @@ import {
 	useVIntl,
 } from '@modrinth/ui'
 import { openUrl } from '@tauri-apps/plugin-opener'
+import { open } from '@tauri-apps/plugin-dialog'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 import {
 	type CurseForgeInstallResult,
 	type CurseForgeManualDownloadImport,
 	type CurseForgeManualDownloadScanResult,
+	importCurseForgeManualDownloadFile,
 	importCurseForgeManualDownloads,
 } from '@/helpers/curseforge'
 import {
@@ -146,6 +156,10 @@ const messages = defineMessages({
 	open: {
 		id: 'app.curseforge.manual-downloads.open',
 		defaultMessage: 'Download',
+	},
+	chooseFile: {
+		id: 'app.curseforge.manual-downloads.choose-file',
+		defaultMessage: 'Choose downloaded file',
 	},
 	openAll: {
 		id: 'app.curseforge.manual-downloads.open-all',
@@ -243,7 +257,6 @@ function scanPayload(
 	item: CurseForgeManualDownloadItem,
 ): CurseForgeInstallResult['manualDownloads'][number] | null {
 	const projectType = item.projectType ?? 'mod'
-	if (projectType === 'modpack') return null
 	return {
 		projectId: item.projectId,
 		fileId: item.fileId,
@@ -383,6 +396,39 @@ async function refreshImportedState() {
 
 async function openOne(item: CurseForgeManualDownloadItem) {
 	await openUrl(getCurseForgeManualDownloadUrl(item))
+}
+
+async function chooseFile(item: CurseForgeManualDownloadItem) {
+	const currentInstanceId = instanceId.value
+	const download = scanPayload(item)
+	if (!currentInstanceId || !download) return
+	const selected = await open({
+		multiple: false,
+		filters: [{ name: item.fileName, extensions: [item.fileName.split('.').pop() ?? '*'] }],
+	})
+	if (typeof selected !== 'string') return
+
+	scanning.value = true
+	try {
+		const imported = await importCurseForgeManualDownloadFile(
+			currentInstanceId,
+			download,
+			selected,
+		)
+		const nextImported = new Set(importedKeys.value)
+		const nextErrors = new Set(errorKeys.value)
+		nextImported.add(itemKey(item))
+		nextErrors.delete(itemKey(item))
+		importedKeys.value = nextImported
+		errorKeys.value = nextErrors
+		emit('imported', currentInstanceId, [imported])
+	} catch {
+		const nextErrors = new Set(errorKeys.value)
+		nextErrors.add(itemKey(item))
+		errorKeys.value = nextErrors
+	} finally {
+		scanning.value = false
+	}
 }
 
 async function openAll() {

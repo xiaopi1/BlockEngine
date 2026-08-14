@@ -355,6 +355,17 @@ export function importCurseForgeManualDownloads(
 	)
 }
 
+export function importCurseForgeManualDownloadFile(
+	instanceId: string,
+	download: CurseForgeInstallResult['manualDownloads'][number],
+	sourcePath: string,
+) {
+	return invoke<CurseForgeManualDownloadImport>(
+		'plugin:curseforge|curseforge_import_manual_download_file',
+		{ instanceId, download, sourcePath },
+	)
+}
+
 export function installCurseForgeModpack(request: {
 	instanceId: string
 	projectId: number

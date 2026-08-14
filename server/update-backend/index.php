@@ -61,7 +61,7 @@ if (isset($_SESSION['authenticated']) && isset($_FILES['version_file'])) {
         $allowedHost = $host === 'san2.top' || str_ends_with($host, '.san2.top');
 
         if (!preg_match('/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/', $version)) {
-            $error = '第一行不是有效版本号，例如 1.8.1。';
+            $error = '第一行不是有效版本号，例如 1.7.2。';
         } elseif (!filter_var($url, FILTER_VALIDATE_URL) || parse_url($url, PHP_URL_SCHEME) !== 'https') {
             $error = '第二行必须是 HTTPS 下载地址。';
         } elseif (!$allowedHost) {
@@ -109,7 +109,7 @@ $current = is_file($versionFile) ? file($versionFile, FILE_IGNORE_NEW_LINES) : [
         <form method="post"><label for="password">管理密码</label><input id="password" name="password" type="password" required autofocus><button type="submit">进入后台</button></form>
     <?php else: ?>
         <p>上传两行 TXT：第一行版本号，第二行安装包 HTTPS 地址。安装包旁边必须存在同名 <b>.sig</b> 签名文件。</p>
-        <code><?= htmlspecialchars(($current[0] ?? '1.8.1') . "\n" . ($current[1] ?? 'https://san2.top/BlockEngine_1.8.1_x64-setup.exe'), ENT_QUOTES, 'UTF-8') ?></code>
+        <code><?= htmlspecialchars(($current[0] ?? '1.7.2') . "\n" . ($current[1] ?? 'https://san2.top/downloads/BlockEngine_1.7.2_x64-setup.exe'), ENT_QUOTES, 'UTF-8') ?></code>
         <form method="post" enctype="multipart/form-data">
             <input type="hidden" name="csrf" value="<?= htmlspecialchars($_SESSION['csrf'], ENT_QUOTES, 'UTF-8') ?>">
             <label for="version_file">version.txt</label><input id="version_file" name="version_file" type="file" accept=".txt,text/plain" required>

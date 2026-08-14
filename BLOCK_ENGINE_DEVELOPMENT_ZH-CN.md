@@ -3,7 +3,7 @@
 ## 当前状态
 
 - 产品名称：方块引擎 / Block Engine
-- 当前版本：`1.7.1`
+- 当前版本：`1.7.2`
 - Windows 主程序：Tauri 2 + Rust
 - 前端：Vue 3 + TypeScript
 - 安装器：Rust WebView 窗口 + 自定义 NSIS
@@ -88,7 +88,7 @@ cargo test --package axolotl-installer-ui
 
 ## 正式 Windows 构建
 
-更新私钥必须保存在源码目录之外。默认构建脚本会在当前工作区的 `outputs/BlockEngine-Update-Keys/block-engine.key` 寻找，也可自行指定：
+更新私钥必须保存在源码目录之外。默认构建脚本会在 `E:\codex\private\BlockEngine-Update-Keys\block-engine.key` 寻找，也可自行指定：
 
 ```powershell
 $env:BLOCK_ENGINE_SIGNING_KEY_PATH = 'D:\private\block-engine.key'
@@ -115,5 +115,7 @@ target-original-ui/release/bundle/nsis/方块引擎_<版本>_x64-setup.nsis.zip.
 2. 再上传与安装包同名的 `.sig`。
 3. 验证两个 HTTPS 地址都能下载。
 4. 最后在更新后台上传两行 `version.txt`。
+
+更新链路可以先使用 `tools/update-test-shell` 中的 1.7.1 独立测试壳验证。它只执行检测、签名校验和安装，不读取正式启动器数据。
 
 严禁把更新私钥放入客户端、服务器或公开源码包。私钥遗失后，现有客户端无法验证新密钥签出的更新。

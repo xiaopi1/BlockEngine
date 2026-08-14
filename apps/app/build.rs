@@ -118,6 +118,7 @@ fn main() {
                         "curseforge_update_installed_file",
                         "curseforge_recognize_instance_files",
                         "curseforge_import_manual_downloads",
+                        "curseforge_import_manual_download_file",
                         "curseforge_install_modpack",
                         "curseforge_update_managed_modpack",
                     ])

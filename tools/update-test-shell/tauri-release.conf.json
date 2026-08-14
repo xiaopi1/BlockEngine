@@ -1,20 +1,6 @@
 {
 	"bundle": {
-		"createUpdaterArtifacts": "v1Compatible",
-		"windows": {
-			"nsis": {
-				"template": "./nsis/installer.nsi",
-				"installerIcon": "./icons/icon.ico"
-			}
-		}
-	},
-	"build": {
-		"features": ["updater"]
-	},
-	"app": {
-		"security": {
-			"capabilities": ["core", "plugins", "updater"]
-		}
+		"createUpdaterArtifacts": "v1Compatible"
 	},
 	"plugins": {
 		"updater": {

@@ -5,9 +5,9 @@ use theseus::curseforge::{
     CurseForgeFilesRequest, CurseForgeFilesResponse,
     CurseForgeFingerprintResult, CurseForgeInstallRequest,
     CurseForgeInstallResult, CurseForgeManualDownload,
-    CurseForgeManualDownloadScanResult, CurseForgeModpackInstallRequest,
-    CurseForgeModpackInstallResult, CurseForgeProject,
-    CurseForgeRecognitionResult, CurseForgeSearchRequest,
+    CurseForgeManualDownloadImport, CurseForgeManualDownloadScanResult,
+    CurseForgeModpackInstallRequest, CurseForgeModpackInstallResult,
+    CurseForgeProject, CurseForgeRecognitionResult, CurseForgeSearchRequest,
     UnifiedSearchResponse,
 };
 
@@ -32,6 +32,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             curseforge_switch_installed_file_version,
             curseforge_recognize_instance_files,
             curseforge_import_manual_downloads,
+            curseforge_import_manual_download_file,
             curseforge_install_modpack,
             curseforge_update_managed_modpack,
         ])
@@ -189,6 +190,20 @@ pub async fn curseforge_import_manual_downloads(
         theseus::curseforge::import_manual_downloads(&instance_id, downloads)
             .await?,
     )
+}
+
+#[tauri::command]
+pub async fn curseforge_import_manual_download_file(
+    instance_id: String,
+    download: CurseForgeManualDownload,
+    source_path: String,
+) -> Result<CurseForgeManualDownloadImport> {
+    Ok(theseus::curseforge::import_manual_download_file(
+        &instance_id,
+        download,
+        std::path::Path::new(&source_path),
+    )
+    .await?)
 }
 
 #[tauri::command]

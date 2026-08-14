@@ -15,6 +15,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 tao = "0.35.3"
 wry = "0.55.1"
+windows = { workspace = true, features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
 
 [lints]
 workspace = true

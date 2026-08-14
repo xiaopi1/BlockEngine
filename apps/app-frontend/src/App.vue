@@ -795,16 +795,6 @@ async function exportNotificationErrorLogs(notification) {
 
 async function setupApp() {
 	const initialSettings = await getSettings()
-	let updateSettingsChanged = false
-	if (initialSettings.auto_download_updates !== false) {
-		initialSettings.auto_download_updates = false
-		updateSettingsChanged = true
-	}
-	if (initialSettings.pending_update_toast_for_version !== null) {
-		initialSettings.pending_update_toast_for_version = null
-		updateSettingsChanged = true
-	}
-	if (updateSettingsChanged) await setSettings(initialSettings)
 	await downloadManager.start()
 	const {
 		native_decorations,
@@ -2493,11 +2483,6 @@ function showDelayedUpdatePopup(force = false) {
 					action: () => downloadAvailableAppUpdate(),
 					color: 'brand',
 				},
-				{
-					label: formatMessage(updatePopupMessages.changelog),
-					action: () => openAppUpdateChangelog(),
-					keepOpen: true,
-				},
 			],
 		})
 	} else if (finishedDownloading.value) {
@@ -2514,11 +2499,6 @@ function showDelayedUpdatePopup(force = false) {
 					action: () => installAvailableAppUpdate(),
 					color: 'brand',
 				},
-				{
-					label: formatMessage(updatePopupMessages.changelog),
-					action: () => openAppUpdateChangelog(),
-					keepOpen: true,
-				},
 			],
 		})
 	} else {
@@ -2529,7 +2509,7 @@ function showDelayedUpdatePopup(force = false) {
 	markAppUpdatePopupShown(update.version, stage)
 }
 
-let lastUpdateSource = 'cnb'
+let lastUpdateSource = 'server'
 
 async function performUpdateCheck() {
 	const source = getUpdateSource()
@@ -2581,8 +2561,13 @@ async function performUpdateCheck() {
 }
 
 async function manualUpdateCheck() {
-	updatesEnabled.value = false
-	return 'disabled'
+	if (offline.value) return 'offline'
+	if (!(await areUpdatesEnabled())) {
+		updatesEnabled.value = false
+		return 'disabled'
+	}
+	updatesEnabled.value = true
+	return performUpdateCheck()
 }
 
 async function checkUpdates() {
@@ -2595,9 +2580,11 @@ async function checkUpdates() {
 
 	updatesEnabled.value = true
 	if (!offline.value) {
-		await performUpdateCheck().catch((error) => {
+		const result = await performUpdateCheck().catch((error) => {
 			console.warn('Failed to check for launcher updates', error)
+			return null
 		})
+		if (result === 'available') return
 	}
 	setTimeout(
 		() => {
@@ -2674,6 +2661,8 @@ setAppUpdateActions({
 	install: installUpdate,
 	changelog: () => undefined,
 })
+
+void checkUpdates()
 
 async function openModrinthProjectLinkInApp(parsed) {
 	const { slug, pathSuffix, url } = parsed

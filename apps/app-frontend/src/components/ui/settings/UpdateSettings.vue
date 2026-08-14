@@ -1,12 +1,20 @@
 <script setup lang="ts">
-import { CheckIcon, CopyIcon, ExternalIcon, ShieldCheckIcon, UsersIcon } from '@modrinth/assets'
+import {
+	CheckIcon,
+	CopyIcon,
+	ExternalIcon,
+	RefreshCwIcon,
+	ShieldCheckIcon,
+	UsersIcon,
+} from '@modrinth/assets'
 import { ButtonStyled, Toggle } from '@modrinth/ui'
 import { getVersion } from '@tauri-apps/api/app'
 import { openUrl } from '@tauri-apps/plugin-opener'
-import { ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import { AxolotlBrandConfig } from '@/config'
 import { get as getSettings, set as setSettings } from '@/helpers/settings'
+import { appUpdateState, checkForAppUpdate } from '@/providers/app-update'
 
 const currentVersion = await getVersion()
 const qqGroupNumber = AxolotlBrandConfig.qqGroupNumber
@@ -15,11 +23,38 @@ const qqGroupUri = `mqqapi://card/show_pslcard?src_type=internal&version=1&uin=$
 const autoUpdateEnabled = ref(false)
 const copied = ref(false)
 const groupStatus = ref('')
+const checking = ref(false)
+const updateStatus = ref('')
 
 const settings = await getSettings()
-if (settings.auto_download_updates !== false) {
-	settings.auto_download_updates = false
-	await setSettings(settings)
+autoUpdateEnabled.value = settings.auto_download_updates ?? false
+const availableVersion = computed(() => appUpdateState.availableUpdate.value?.version ?? null)
+
+watch(autoUpdateEnabled, async (enabled) => {
+	const latestSettings = await getSettings()
+	latestSettings.auto_download_updates = enabled
+	await setSettings(latestSettings)
+})
+
+async function checkNow() {
+	checking.value = true
+	updateStatus.value = ''
+	try {
+		const result = await checkForAppUpdate()
+		updateStatus.value =
+			result === 'available'
+				? `发现新版本 ${availableVersion.value ?? ''}`
+				: result === 'up-to-date'
+					? '当前已是最新版本。'
+					: result === 'offline'
+						? '当前处于离线状态。'
+						: '此安装方式不支持应用内更新。'
+	} catch (error) {
+		console.warn('Failed to check for Block Engine updates', error)
+		updateStatus.value = '检查更新失败，请稍后重试。'
+	} finally {
+		checking.value = false
+	}
 }
 
 async function copyGroupNumber(announce = true) {
@@ -59,18 +94,24 @@ async function joinOfficialGroup() {
 			<div class="update-mark"><UsersIcon /></div>
 			<div class="update-copy">
 				<small>BLOCK ENGINE RELEASE</small>
-				<h2>群内更新</h2>
-				<p>当前版本 {{ currentVersion }}。新版安装包统一在方块引擎官方群发布。</p>
+				<h2>官方更新</h2>
+				<p>当前版本 {{ currentVersion }}。仅从方块引擎官方服务检查签名更新。</p>
 			</div>
-			<span class="official-badge"><ShieldCheckIcon /> 官方群发布</span>
+			<ButtonStyled type="outlined">
+				<button type="button" :disabled="checking" @click="checkNow">
+					<RefreshCwIcon :class="{ 'animate-spin': checking }" />
+					{{ checking ? '正在检查' : '检查更新' }}
+				</button>
+			</ButtonStyled>
 		</section>
+		<p v-if="updateStatus" class="group-status" role="status">{{ updateStatus }}</p>
 
 		<section class="update-row">
 			<div>
 				<strong>自动更新</strong>
-				<p>在线自动更新暂时停用，客户端不会在启动时检查、下载或替换自身。</p>
+				<p>开启后启动时自动检查并下载；关闭后只提示，由你确认后再下载。</p>
 			</div>
-			<Toggle id="official-auto-update" v-model="autoUpdateEnabled" disabled />
+			<Toggle id="official-auto-update" v-model="autoUpdateEnabled" />
 		</section>
 
 		<section class="group-card">

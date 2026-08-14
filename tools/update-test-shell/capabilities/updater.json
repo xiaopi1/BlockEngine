@@ -1,0 +1,8 @@
+{
+	"identifier": "updater",
+	"description": "Allows the signed BlockEngine update test.",
+	"local": true,
+	"windows": ["main"],
+	"permissions": ["updater:default"]
+}
+

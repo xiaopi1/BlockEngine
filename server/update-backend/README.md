@@ -7,10 +7,10 @@
 3. 最后打开 `index.php`，登录后上传两行 `version.txt`：
 
    ```text
-   1.8.1
-   https://san2.top/download/BlockEngine_1.8.1_x64-setup.exe
+   1.7.2
+   https://san2.top/downloads/BlockEngine_1.7.2_x64-setup.exe
    ```
 
 4. 启动器读取 `latest.php`。自动更新开启时会自动下载签名安装包；关闭时只显示更新提示。
 
-更新私钥位于本机 `outputs/BlockEngine-Update-Keys/block-engine.key`。不要上传、不要放进网站目录、不要提交到公开仓库；丢失后旧版本将无法验证新更新。
+更新私钥位于本机 `E:\codex\private\BlockEngine-Update-Keys\block-engine.key`。不要上传、不要放进网站目录、不要提交到公开仓库；丢失后旧版本将无法验证新更新。

@@ -33,7 +33,7 @@ if errorlevel 1 (
 )
 popd
 
-set "DEFAULT_SIGNING_KEY_PATH=%REPO_ROOT%\..\..\outputs\BlockEngine-Update-Keys\block-engine.key"
+set "DEFAULT_SIGNING_KEY_PATH=E:\codex\private\BlockEngine-Update-Keys\block-engine.key"
 if not defined BLOCK_ENGINE_SIGNING_KEY_PATH if exist "%DEFAULT_SIGNING_KEY_PATH%" set "BLOCK_ENGINE_SIGNING_KEY_PATH=%DEFAULT_SIGNING_KEY_PATH%"
 if defined BLOCK_ENGINE_SIGNING_KEY_PATH (
 	if not exist "%BLOCK_ENGINE_SIGNING_KEY_PATH%" (
@@ -42,9 +42,11 @@ if defined BLOCK_ENGINE_SIGNING_KEY_PATH (
 	)
 	set /p TAURI_SIGNING_PRIVATE_KEY=<"%BLOCK_ENGINE_SIGNING_KEY_PATH%"
 	set "TAURI_SIGNING_PRIVATE_KEY_PASSWORD="
+	set "TAURI_RELEASE_CONFIG=tauri-release.conf.json"
 ) else (
 	set "TAURI_SIGNING_PRIVATE_KEY="
 	set "TAURI_SIGNING_PRIVATE_KEY_PASSWORD="
+	set "TAURI_RELEASE_CONFIG=tauri.build.config.json"
 	echo [INFO] Updater artifacts are disabled; building without an update signing key.
 )
 
@@ -73,7 +75,7 @@ if errorlevel 1 (
 popd
 
 pushd "%~dp0"
-"%NODE_EXE%" "node_modules\@tauri-apps\cli\tauri.js" build --config tauri.build.config.json --ci
+"%NODE_EXE%" "node_modules\@tauri-apps\cli\tauri.js" build --config "%TAURI_RELEASE_CONFIG%" --ci
 set "BUILD_EXIT=%errorlevel%"
 popd
 exit /b %BUILD_EXIT%

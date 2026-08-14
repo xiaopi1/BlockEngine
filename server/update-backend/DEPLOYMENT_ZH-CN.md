@@ -80,22 +80,22 @@ location = /blockengine/latest.php {
 
 发布顺序不能颠倒：先上传安装包和签名，最后发布 TXT。
 
-假设新版本为 `1.8.1`：
+假设新版本为 `1.7.2`：
 
 1. 构建并签名新版客户端。
 2. 上传以下两个文件到同一个目录：
 
    ```text
-   https://san2.top/downloads/BlockEngine_1.8.1_x64-setup.exe
-   https://san2.top/downloads/BlockEngine_1.8.1_x64-setup.exe.sig
+   https://san2.top/downloads/BlockEngine_1.7.2_x64-setup.exe
+   https://san2.top/downloads/BlockEngine_1.7.2_x64-setup.exe.sig
    ```
 
 3. 分别访问两个地址，确认都能下载，且服务器没有把 `.sig` 当作网页返回。
 4. 新建 UTF-8 编码的 `version.txt`，必须只有两行：
 
    ```text
-   1.8.1
-   https://san2.top/downloads/BlockEngine_1.8.1_x64-setup.exe
+   1.7.2
+   https://san2.top/downloads/BlockEngine_1.7.2_x64-setup.exe
    ```
 
 5. 打开 `https://san2.top/blockengine/`，登录后上传该 TXT。

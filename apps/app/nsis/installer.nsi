@@ -991,6 +991,10 @@ Function .onInit
 
   ${IfNot} ${Silent}
   ${AndIf} $PassiveMode <> 1
+    ; Keep the stock NSIS wizard completely out of sight while the branded
+    ; installer shell is active.  Without this, NSIS can steal focus during
+    ; .onInit and make users think the animated installer was removed.
+    HideWindow
     InitPluginsDir
     SetOutPath "$PLUGINSDIR"
 	File "/oname=$PLUGINSDIR\BlockEngineInstallerUI.exe" "${AXL_INSTALLER_UI_PATH}"
@@ -1000,6 +1004,10 @@ Function .onInit
     ${If} $0 <> 2
       Quit
     ${EndIf}
+    ; Exit code 2 means the custom shell could not start (for example when
+    ; WebView2 is unavailable).  Only then reveal the safe NSIS fallback.
+    ShowWindow $HWNDPARENT ${SW_SHOW}
+    BringToFront
   ${EndIf}
 FunctionEnd
 

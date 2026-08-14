@@ -182,6 +182,14 @@ pub struct UnifiedSearchResponse {
     pub total_hits: u32,
 }
 
+fn deserialize_null_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: serde::Deserialize<'de> + Default,
+{
+    Ok(Option::<T>::deserialize(deserializer)?.unwrap_or_default())
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct UnifiedSearchHit {
     pub provider: ContentProvider,
@@ -192,13 +200,16 @@ pub struct UnifiedSearchHit {
     pub title: String,
     pub description: String,
     pub project_type: String,
+    #[serde(default, deserialize_with = "deserialize_null_default")]
     pub categories: Vec<String>,
+    #[serde(default, deserialize_with = "deserialize_null_default")]
     pub versions: Vec<String>,
     pub downloads: u64,
     pub icon_url: Option<String>,
     pub date_created: String,
     pub date_modified: String,
     pub latest_version: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_null_default")]
     pub gallery: Vec<String>,
     pub website_url: Option<String>,
     pub source_url: Option<String>,
@@ -275,18 +286,18 @@ pub struct CurseForgeProject {
     pub download_count: u64,
     pub is_featured: bool,
     pub primary_category_id: u32,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_null_default")]
     pub categories: Vec<CurseForgeCategory>,
     pub class_id: Option<u32>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_null_default")]
     pub authors: Vec<CurseForgeAuthor>,
     pub logo: Option<CurseForgeAsset>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_null_default")]
     pub screenshots: Vec<CurseForgeAsset>,
     pub main_file_id: u32,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_null_default")]
     pub latest_files: Vec<CurseForgeFile>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_null_default")]
     pub latest_files_indexes: Vec<CurseForgeFileIndex>,
     pub date_created: String,
     pub date_modified: String,
@@ -338,18 +349,18 @@ pub struct CurseForgeFile {
     pub file_name: String,
     pub release_type: u32,
     pub file_status: u32,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_null_default")]
     pub hashes: Vec<CurseForgeFileHash>,
     pub file_date: String,
     pub file_length: u64,
     pub download_count: u64,
     pub file_size_on_disk: Option<u64>,
     pub download_url: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_null_default")]
     pub game_versions: Vec<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_null_default")]
     pub sortable_game_versions: Vec<CurseForgeSortableGameVersion>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_null_default")]
     pub dependencies: Vec<CurseForgeFileDependency>,
     pub expose_as_alternative: Option<bool>,
     pub parent_project_file_id: Option<u32>,
@@ -359,7 +370,7 @@ pub struct CurseForgeFile {
     pub is_early_access_content: Option<bool>,
     pub early_access_end_date: Option<String>,
     pub file_fingerprint: u64,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_null_default")]
     pub modules: Vec<CurseForgeFileModule>,
 }
 
@@ -3500,6 +3511,38 @@ pub async fn import_manual_downloads(
     Ok(result)
 }
 
+pub async fn import_manual_download_file(
+    instance_id: &str,
+    download: CurseForgeManualDownload,
+    source_path: &Path,
+) -> crate::Result<CurseForgeManualDownloadImport> {
+    let Some((size, sha1)) =
+        validate_manual_download_candidate(source_path, &download).await?
+    else {
+        return Err(ErrorKind::InputError(format!(
+            "Selected file does not match the expected CurseForge file {}",
+            download.file_name
+        ))
+        .into());
+    };
+
+    let relative_path = install_manual_download(
+        instance_id,
+        &download,
+        source_path,
+        size,
+        &sha1,
+    )
+    .await?;
+    crate::api::instance::emit_content_changed(instance_id).await?;
+
+    Ok(CurseForgeManualDownloadImport {
+        project_id: download.project_id,
+        file_id: download.file_id,
+        relative_path,
+    })
+}
+
 pub(crate) async fn scan_pending_manual_downloads() -> crate::Result<()> {
     let state = State::get().await?;
     let instance_ids = sqlx::query_scalar::<_, String>(
@@ -3589,53 +3632,65 @@ async fn find_manual_download_candidate(
     };
 
     while let Some(entry) = entries.next_entry().await? {
-        let actual_file_name = entry.file_name().to_string_lossy().to_string();
-        if !manual_download_file_name_matches(
-            &actual_file_name,
-            &download.file_name,
-        ) {
-            continue;
-        }
-        let metadata = match entry.metadata().await {
-            Ok(metadata) if metadata.is_file() => metadata,
-            _ => continue,
-        };
-        if download.file_length > 0 && metadata.len() != download.file_length {
-            continue;
-        }
-
         let path = entry.path();
-        let (size, sha1) = match sha1_file_async(&path).await {
-            Ok(hash) => hash,
-            Err(_) => continue,
-        };
-        if let Some(expected_sha1) = download
-            .hashes
-            .iter()
-            .find(|hash| hash.algo == 1)
-            .map(|hash| hash.value.as_str())
+        if let Ok(Some(candidate)) =
+            validate_manual_download_candidate(&path, download).await
         {
-            if sha1.eq_ignore_ascii_case(expected_sha1) {
-                return Ok(Some((path, size, sha1)));
-            }
-            continue;
-        }
-        if manual_download_matches_without_hash(download, &actual_file_name) {
-            return Ok(Some((path, size, sha1)));
-        }
-        if download.file_fingerprint == 0 {
-            continue;
-        }
-        let bytes = match tokio::fs::read(&path).await {
-            Ok(bytes) => bytes,
-            Err(_) => continue,
-        };
-        if compute_fingerprint(&bytes) as u64 == download.file_fingerprint {
-            return Ok(Some((path, size, sha1)));
+            return Ok(Some((path, candidate.0, candidate.1)));
         }
     }
 
     Ok(None)
+}
+
+async fn validate_manual_download_candidate(
+    path: &Path,
+    download: &CurseForgeManualDownload,
+) -> crate::Result<Option<(u64, String)>> {
+    validate_file_name(&download.file_name)?;
+    let Some(actual_file_name) =
+        path.file_name().and_then(|name| name.to_str())
+    else {
+        return Ok(None);
+    };
+    if !manual_download_file_name_matches(actual_file_name, &download.file_name)
+    {
+        return Ok(None);
+    }
+    let metadata = match tokio::fs::metadata(path).await {
+        Ok(metadata) if metadata.is_file() => metadata,
+        Ok(_) => return Ok(None),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(None);
+        }
+        Err(error) => return Err(error.into()),
+    };
+    if download.file_length > 0 && metadata.len() != download.file_length {
+        return Ok(None);
+    }
+
+    let (size, sha1) = sha1_file_async(path).await?;
+    if let Some(expected_sha1) = download
+        .hashes
+        .iter()
+        .find(|hash| hash.algo == 1)
+        .map(|hash| hash.value.as_str())
+    {
+        return Ok(sha1
+            .eq_ignore_ascii_case(expected_sha1)
+            .then_some((size, sha1)));
+    }
+    if manual_download_matches_without_hash(download, actual_file_name) {
+        return Ok(Some((size, sha1)));
+    }
+    if download.file_fingerprint == 0 {
+        return Ok(None);
+    }
+    let bytes = tokio::fs::read(path).await?;
+    Ok(
+        (compute_fingerprint(&bytes) as u64 == download.file_fingerprint)
+            .then_some((size, sha1)),
+    )
 }
 
 fn manual_download_matches_without_hash(
@@ -4915,6 +4970,58 @@ fn murmur2(data: &[u8], seed: u32) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unified_search_hit_accepts_null_collections() {
+        let hit: UnifiedSearchHit = serde_json::from_value(serde_json::json!({
+            "provider": "curseforge",
+            "project_id": "250419",
+            "slug": null,
+            "author": "DarkhaxDev",
+            "author_url": null,
+            "title": "Enchantment Descriptions",
+            "description": "description",
+            "project_type": "mod",
+            "categories": null,
+            "versions": null,
+            "downloads": 0,
+            "icon_url": null,
+            "date_created": "2026-01-01T00:00:00Z",
+            "date_modified": "2026-01-01T00:00:00Z",
+            "latest_version": null,
+            "gallery": null,
+            "website_url": null,
+            "source_url": null,
+            "allow_mod_distribution": null
+        }))
+        .unwrap();
+
+        assert!(hit.categories.is_empty());
+        assert!(hit.versions.is_empty());
+        assert!(hit.gallery.is_empty());
+    }
+
+    #[test]
+    fn curseforge_file_accepts_null_modules() {
+        let file: CurseForgeFile = serde_json::from_value(serde_json::json!({
+            "id": 4031925,
+            "gameId": 432,
+            "modId": 250419,
+            "isAvailable": true,
+            "displayName": "old.jar",
+            "fileName": "old.jar",
+            "releaseType": 1,
+            "fileStatus": 4,
+            "fileDate": "2026-01-01T00:00:00Z",
+            "fileLength": 1,
+            "downloadCount": 0,
+            "fileFingerprint": 0,
+            "modules": null
+        }))
+        .unwrap();
+
+        assert!(file.modules.is_empty());
+    }
 
     #[test]
     fn fingerprint_ignores_curseforge_whitespace() {

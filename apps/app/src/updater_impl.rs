@@ -27,20 +27,19 @@ pub struct UpdateMetadata {
 #[derive(Default)]
 pub struct PendingUpdateData(pub Mutex<Option<(Arc<Update>, Vec<u8>)>>);
 
-fn update_endpoints(source: &str, custom_endpoint: Option<&str>) -> Result<Vec<Url>> {
-	let endpoints = match source {
-		"server" => vec![custom_endpoint.ok_or_else(|| {
-			theseus::Error::from(theseus::ErrorKind::OtherError(
-				"The custom update server URL is empty.".to_string(),
-			))
-		})?],
-        "github" | "official" => vec![
-            "https://github.com/Mystic-Stars/Axolotl/releases/latest/download/latest.json",
-        ],
-        "cnb" => vec![
-            "https://cnb.cool/axlmc/Axolotl/-/git/raw/update/latest.json",
-            "https://github.com/Mystic-Stars/Axolotl/releases/latest/download/latest.json",
-        ],
+fn update_endpoints(
+    source: &str,
+    custom_endpoint: Option<&str>,
+) -> Result<Vec<Url>> {
+    let endpoints = match source {
+        "server" => vec![custom_endpoint.ok_or_else(|| {
+            theseus::Error::from(theseus::ErrorKind::OtherError(
+                "The custom update server URL is empty.".to_string(),
+            ))
+        })?],
+        "github" | "official" | "cnb" => {
+            vec!["https://san2.top/blockengine/latest.php"]
+        }
         _ => {
             return Err(theseus::Error::from(theseus::ErrorKind::OtherError(
                 format!("Unknown update source: {source}"),
@@ -49,9 +48,9 @@ fn update_endpoints(source: &str, custom_endpoint: Option<&str>) -> Result<Vec<U
         }
     };
 
-	let endpoints: Vec<Url> = endpoints
-		.into_iter()
-		.map(|endpoint| {
+    let endpoints: Vec<Url> = endpoints
+        .into_iter()
+        .map(|endpoint| {
             Url::parse(endpoint).map_err(|error| {
                 theseus::Error::from(theseus::ErrorKind::OtherError(
                     error.to_string(),
@@ -59,36 +58,42 @@ fn update_endpoints(source: &str, custom_endpoint: Option<&str>) -> Result<Vec<U
                 .into()
             })
         })
-		.collect::<Result<Vec<_>>>()?;
+        .collect::<Result<Vec<_>>>()?;
 
-	for endpoint in &endpoints {
-		let is_localhost = matches!(endpoint.host_str(), Some("localhost" | "127.0.0.1" | "::1"));
-		if endpoint.scheme() != "https" && !(cfg!(debug_assertions) && is_localhost) {
-			return Err(theseus::Error::from(theseus::ErrorKind::OtherError(
-				"Update server URLs must use HTTPS.".to_string(),
-			))
-			.into());
-		}
-		if !endpoint.username().is_empty() || endpoint.password().is_some() {
-			return Err(theseus::Error::from(theseus::ErrorKind::OtherError(
-				"Credentials are not allowed in update server URLs.".to_string(),
-			))
-			.into());
-		}
-	}
+    for endpoint in &endpoints {
+        let is_localhost = matches!(
+            endpoint.host_str(),
+            Some("localhost" | "127.0.0.1" | "::1")
+        );
+        if endpoint.scheme() != "https"
+            && !(cfg!(debug_assertions) && is_localhost)
+        {
+            return Err(theseus::Error::from(theseus::ErrorKind::OtherError(
+                "Update server URLs must use HTTPS.".to_string(),
+            ))
+            .into());
+        }
+        if !endpoint.username().is_empty() || endpoint.password().is_some() {
+            return Err(theseus::Error::from(theseus::ErrorKind::OtherError(
+                "Credentials are not allowed in update server URLs."
+                    .to_string(),
+            ))
+            .into());
+        }
+    }
 
-	Ok(endpoints)
+    Ok(endpoints)
 }
 
 #[tauri::command]
 pub async fn check_app_update<R: Runtime>(
-	webview: Webview<R>,
-	source: String,
-	custom_endpoint: Option<String>,
+    webview: Webview<R>,
+    source: String,
+    custom_endpoint: Option<String>,
 ) -> Result<Option<UpdateMetadata>> {
     let updater = webview
         .updater_builder()
-		.endpoints(update_endpoints(&source, custom_endpoint.as_deref())?)?
+        .endpoints(update_endpoints(&source, custom_endpoint.as_deref())?)?
         .build()?;
     let Some(update) = updater.check().await? else {
         return Ok(None);

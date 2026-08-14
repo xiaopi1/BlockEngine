@@ -1,5 +1,6 @@
 use std::{
     env, fs,
+    os::windows::process::CommandExt,
     path::{Path, PathBuf},
     process::{Command, ExitStatus},
     thread,
@@ -17,6 +18,10 @@ use tao::{
     window::{Theme, WindowBuilder},
 };
 use wry::{NewWindowResponse, WebView, WebViewBuilder, http::Request};
+use windows::Win32::UI::WindowsAndMessaging::{
+    FindWindowW, SW_HIDE, ShowWindow,
+};
+use windows::core::w;
 
 const HTML: &str = include_str!("installer.html");
 const LOGO: &[u8] = include_bytes!("../../app/icons/128x128.png");
@@ -97,7 +102,7 @@ pub fn run() -> Result<(), String> {
     let arguments = parse_arguments()?;
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
     let window = WindowBuilder::new()
-		.with_title("方块引擎安装程序")
+        .with_title("方块引擎安装程序")
         .with_inner_size(LogicalSize::new(940.0, 620.0))
         .with_min_inner_size(LogicalSize::new(940.0, 620.0))
         .with_max_inner_size(LogicalSize::new(940.0, 620.0))
@@ -143,9 +148,9 @@ pub fn run() -> Result<(), String> {
     let mut webview = Some(
         WebViewBuilder::new()
             .with_html(HTML)
-			.with_initialization_script(format!(
-				"window.__AXOLOTL_INSTALLER__ = {bootstrap};"
-			))
+            .with_initialization_script(format!(
+                "window.__AXOLOTL_INSTALLER__ = {bootstrap};"
+            ))
             .with_background_color((22, 24, 28, 255))
             .with_ipc_handler(handler)
             .with_new_window_req_handler(|_, _| NewWindowResponse::Deny)
@@ -157,6 +162,7 @@ pub fn run() -> Result<(), String> {
 
     window.set_visible(true);
     window.set_focus();
+    hide_stock_installer_window_for_startup();
 
     let installer = arguments.installer;
     let fresh_install = arguments.bootstrap.fresh_install;
@@ -294,6 +300,26 @@ pub fn run() -> Result<(), String> {
     });
 }
 
+fn hide_stock_installer_window_for_startup() {
+    // Tauri/NSIS may show its wizard again after `.onInit`, even though the
+    // branded shell is already active. Keep hiding the one known Block Engine
+    // NSIS window during its short startup sequence; the shell remains the
+    // sole user-facing installer UI.
+    thread::spawn(|| {
+        for _ in 0..80 {
+            unsafe {
+                let installer_window = FindWindowW(None, w!("方块引擎 安装"));
+                if let Ok(window) = installer_window
+                    && !window.is_invalid()
+                {
+                    let _ = ShowWindow(window, SW_HIDE);
+                }
+            }
+            thread::sleep(Duration::from_millis(100));
+        }
+    });
+}
+
 fn parse_arguments() -> Result<Arguments, String> {
     let mut args = env::args_os().skip(1);
     let mut installer = None;
@@ -357,7 +383,7 @@ fn validate_request(
     fresh_install: bool,
 ) -> Result<(), (&'static str, &'static str)> {
     let install_dir = PathBuf::from(request.install_dir.trim());
-    if !install_dir.is_absolute() {
+    if !install_dir.is_absolute() || request.install_dir.contains('"') {
         return Err(("install", "absolutePath"));
     }
 
@@ -366,7 +392,7 @@ fn validate_request(
     }
 
     let resource_dir = PathBuf::from(request.resource_dir.trim());
-    if !resource_dir.is_absolute() {
+    if !resource_dir.is_absolute() || request.resource_dir.contains('"') {
         return Err(("resource", "absolutePath"));
     }
     if resource_dir.parent().is_none() {
@@ -385,8 +411,8 @@ fn validate_request(
         return Err(("resource", "notWritable"));
     }
     let write_test = resource_dir
-		.join(format!(".block-engine-write-test-{}", std::process::id()));
-	if fs::write(&write_test, b"Block Engine").is_err() {
+        .join(format!(".block-engine-write-test-{}", std::process::id()));
+    if fs::write(&write_test, b"Block Engine").is_err() {
         return Err(("resource", "notWritable"));
     }
     let _ = fs::remove_file(write_test);
@@ -421,7 +447,7 @@ fn start_install(
 ) {
     thread::spawn(move || {
         let status_path = env::temp_dir().join(format!(
-			"block-engine-installer-{}-{}.status",
+            "block-engine-installer-{}-{}.status",
             std::process::id(),
             thread_id_suffix()
         ));
@@ -454,12 +480,19 @@ fn installer_command(
         // so pass user-selected directories through it instead.
         .env(INSTALL_DIR_ENV, &request.install_dir)
         .env(RESOURCE_DIR_ENV, &request.resource_dir)
-        .arg("/S")
-        .arg(format!("/STATUS_FILE={}", status_path.display()));
+        .arg("/S");
+    command.raw_arg(nsis_value_option(
+        "STATUS_FILE",
+        &status_path.to_string_lossy(),
+    ));
     if !request.desktop_shortcut {
         command.arg("/NO_DESKTOP_SHORTCUT");
     }
     command
+}
+
+fn nsis_value_option(name: &str, value: &str) -> String {
+    format!(r#"/{name}="{value}""#)
 }
 
 fn wait_for_installer(
@@ -521,8 +554,9 @@ fn send_to_webview(webview: Option<&WebView>, payload: serde_json::Value) {
 #[cfg(test)]
 mod tests {
     use super::{
-        INSTALL_DIR_ENV, RESOURCE_DIR_ENV, InstallRequest, UiCommand,
+        INSTALL_DIR_ENV, InstallRequest, RESOURCE_DIR_ENV, UiCommand,
         dialog_initial_location, installer_command, launch_main_process,
+        nsis_value_option,
     };
     use std::{
         ffi::OsStr,
@@ -571,6 +605,14 @@ mod tests {
     }
 
     #[test]
+    fn nsis_option_keeps_name_outside_quoted_value() {
+        assert_eq!(
+            nsis_value_option("STATUS_FILE", r"C:\Temp\Block Engine.status"),
+            r#"/STATUS_FILE="C:\Temp\Block Engine.status""#,
+        );
+    }
+
+    #[test]
     fn installer_command_preserves_unicode_directories_in_environment() {
         let request = InstallRequest {
             install_dir: r"E:\美西螈".to_string(),
@@ -598,12 +640,12 @@ mod tests {
                 .and_then(|(_, value)| value),
             Some(OsStr::new(r"E:\美西螈 Data")),
         );
-        assert!(!command
-            .get_args()
-            .any(|argument| argument.to_string_lossy().starts_with("/INSTALL_DIR=")));
-        assert!(!command
-            .get_args()
-            .any(|argument| argument.to_string_lossy().starts_with("/RESOURCE_DIR=")));
+        assert!(!command.get_args().any(|argument| {
+            argument.to_string_lossy().starts_with("/INSTALL_DIR=")
+        }));
+        assert!(!command.get_args().any(|argument| {
+            argument.to_string_lossy().starts_with("/RESOURCE_DIR=")
+        }));
     }
 
     #[test]
